@@ -4,30 +4,37 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
-  // Function to fetch activities from API
-  async function fetchActivities() {
+  // Fetch activities and populate the page
+  async function loadActivities() {
     try {
       const response = await fetch("/activities");
       const activities = await response.json();
 
-      // Clear loading message
       activitiesList.innerHTML = "";
 
-      // Populate activities list
-      Object.entries(activities).forEach(([name, details]) => {
-        const activityCard = document.createElement("div");
-        activityCard.className = "activity-card";
+      Object.entries(activities).forEach(([name, activity]) => {
+        // Create activity card
+        const card = document.createElement("div");
+        card.className = "activity-card";
 
-        const spotsLeft = details.max_participants - details.participants.length;
+        const participantsList = activity.participants
+          .map((p) => `<li>${p}</li>`)
+          .join("");
 
-        activityCard.innerHTML = `
+        card.innerHTML = `
           <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <p><strong>Description:</strong> ${activity.description}</p>
+          <p><strong>Schedule:</strong> ${activity.schedule}</p>
+          <p><strong>Max Participants:</strong> ${activity.max_participants}</p>
+          <div class="participants-section">
+            <h5>Signed Up (${activity.participants.length})</h5>
+            <ul>
+              ${participantsList}
+            </ul>
+          </div>
         `;
 
-        activitiesList.appendChild(activityCard);
+        activitiesList.appendChild(card);
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -36,8 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
         activitySelect.appendChild(option);
       });
     } catch (error) {
-      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
-      console.error("Error fetching activities:", error);
+      console.error("Error loading activities:", error);
+      document.getElementById("activities-list").innerHTML =
+        "<p>Error loading activities</p>";
     }
   }
 
@@ -50,37 +58,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const response = await fetch(
-        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(
+          email
+        )}`,
         {
           method: "POST",
         }
       );
 
-      const result = await response.json();
-
       if (response.ok) {
-        messageDiv.textContent = result.message;
-        messageDiv.className = "success";
+        messageDiv.className = "message success";
+        messageDiv.textContent = `Successfully signed up for ${activity}!`;
+        messageDiv.classList.remove("hidden");
         signupForm.reset();
+        loadActivities(); // Refresh the activities list
       } else {
-        messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
+        const error = await response.json();
+        messageDiv.className = "message error";
+        messageDiv.textContent = error.detail || "Error signing up";
+        messageDiv.classList.remove("hidden");
       }
-
-      messageDiv.classList.remove("hidden");
-
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
     } catch (error) {
-      messageDiv.textContent = "Failed to sign up. Please try again.";
-      messageDiv.className = "error";
+      messageDiv.className = "message error";
+      messageDiv.textContent = "Error submitting signup";
       messageDiv.classList.remove("hidden");
-      console.error("Error signing up:", error);
     }
   });
 
   // Initialize app
-  fetchActivities();
+  loadActivities();
 });
